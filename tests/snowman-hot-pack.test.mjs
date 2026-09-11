@@ -103,3 +103,12 @@ test('selects the freeze sequence from the current disc region', () => {
     assert.ok(html.includes(token), `missing ${token}`);
   }
 });
+
+test('keeps the fitted beanie entirely in front of the head', () => {
+  const crown = html.match(/\.hat-crown\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+  const brim = html.match(/\.hat-brim\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+  assert.match(crown, /z-index:\s*18/);
+  assert.match(crown, /height:\s*18%/);
+  assert.match(brim, /z-index:\s*20/);
+  assert.match(brim, /width:\s*45%/);
+});
