@@ -104,6 +104,8 @@
     --freeze-x: 50%;
     --freeze-y: 60%;
     --frozen-opacity: 0;
+    --disc-dx: 0px;
+    --disc-dy: 0px;
     filter: drop-shadow(0 22px 22px rgba(79, 62, 38, .10));
     transform-origin: 50% 70%;
   }
@@ -422,7 +424,7 @@
     top: 72%;
     width: 86px;
     height: 86px;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) translate(var(--disc-dx), var(--disc-dy));
     border: 4px solid #888a85;
     border-radius: 50%;
     cursor: pointer;
@@ -436,6 +438,8 @@
       inset 0 -7px 12px rgba(73,74,70,.2),
       0 4px 7px rgba(60,52,40,.25);
     transition: transform .12s ease, filter .2s ease, box-shadow .2s ease;
+    touch-action: none;
+    will-change: transform;
   }
 
   .disc::before {
@@ -450,7 +454,7 @@
   .disc:hover { filter: brightness(1.06); }
 
   .disc:active {
-    transform: translate(-50%, -50%) scale(.9);
+    transform: translate(-50%, -50%) translate(var(--disc-dx), var(--disc-dy)) scale(.9);
     box-shadow: inset 0 0 0 4px rgba(238,239,235,.3), inset 0 5px 12px rgba(61,62,59,.3), 0 1px 2px rgba(60,52,40,.16);
   }
 
@@ -717,16 +721,77 @@
   const meltBtn = document.getElementById('meltBtn');
   const countdown = document.getElementById('countdown');
   const status = document.getElementById('status');
+  const belly = document.querySelector('.belly');
 
   let state = 'ready';
   let meltArmed = false;
   let meltTimer = null;
   let stateTimer = null;
+  let drag = null;
+  let discPosition = { x: 50, y: 72 };
 
   function setState(nextState, message) {
     state = nextState;
     pack.dataset.state = nextState;
     status.textContent = message;
+  }
+
+  function clampDiscPosition(x, y) {
+    const dx = (x - 50) / 20;
+    const dy = (y - 71) / 13.5;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= 1) return { x, y };
+    return {
+      x: 50 + (dx / distance) * 20,
+      y: 71 + (dy / distance) * 13.5,
+    };
+  }
+
+  function setDiscPosition(x, y) {
+    const next = clampDiscPosition(x, y);
+    const packRect = pack.getBoundingClientRect();
+    const bellyRect = belly.getBoundingClientRect();
+    const discX = packRect.left + packRect.width * next.x / 100;
+    const discY = packRect.top + packRect.height * next.y / 100;
+    const offsetX = packRect.width * (next.x - 50) / 100;
+    const offsetY = packRect.height * (next.y - 72) / 100;
+    const freezeX = (discX - bellyRect.left) / bellyRect.width * 100;
+    const freezeY = (discY - bellyRect.top) / bellyRect.height * 100;
+
+    discPosition = next;
+    pack.style.setProperty('--disc-dx', `${offsetX}px`);
+    pack.style.setProperty('--disc-dy', `${offsetY}px`);
+    pack.style.setProperty('--freeze-x', `${freezeX}%`);
+    pack.style.setProperty('--freeze-y', `${freezeY}%`);
+  }
+
+  function beginDiscDrag(event) {
+    if (state !== 'ready') return;
+    drag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    disc.setPointerCapture(event.pointerId);
+  }
+
+  function moveDisc(event) {
+    if (!drag || drag.pointerId !== event.pointerId || state !== 'ready') return;
+    const travel = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    if (travel < 6) return;
+    const packRect = pack.getBoundingClientRect();
+    const x = (event.clientX - packRect.left) / packRect.width * 100;
+    const y = (event.clientY - packRect.top) / packRect.height * 100;
+    setDiscPosition(x, y);
+  }
+
+  function endDiscDrag(event) {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const travel = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    if (disc.hasPointerCapture(event.pointerId)) disc.releasePointerCapture(event.pointerId);
+    drag = null;
+    if (travel < 6) startCrystallization();
+    else setState('ready', '똑딱이를 눌러 결정화를 시작하세요');
   }
 
   function seedCrystals(container, count, startX = 50, startY = 70) {
@@ -777,6 +842,7 @@
 
   function startCrystallization() {
     if (state !== 'ready') return;
+    setDiscPosition(discPosition.x, discPosition.y);
     clearTimeout(stateTimer);
     meltArmed = false;
     countdown.classList.remove('show');
@@ -846,7 +912,13 @@
     setState('ready', '금속 똑딱이를 눌러 따뜻하게 해보세요');
   }
 
-  disc.addEventListener('click', startCrystallization);
+  disc.addEventListener('pointerdown', beginDiscDrag);
+  disc.addEventListener('pointermove', moveDisc);
+  disc.addEventListener('pointerup', endDiscDrag);
+  disc.addEventListener('pointercancel', () => { drag = null; });
+  disc.addEventListener('click', (event) => {
+    if (event.detail === 0) startCrystallization();
+  });
 
   meltBtn.addEventListener('click', () => {
     if (state === 'solid' && !meltArmed) {

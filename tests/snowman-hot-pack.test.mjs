@@ -61,3 +61,11 @@ test('builds the hat from a crown behind the head and a brim above it', () => {
   assert.match(html, /class=["']hat-crown["']/);
   assert.match(html, /class=["']hat-brim["']/);
 });
+
+test('supports bounded pointer dragging with a six pixel activation threshold', () => {
+  for (const name of ['clampDiscPosition', 'setDiscPosition', 'beginDiscDrag', 'moveDisc', 'endDiscDrag']) {
+    assert.match(html, new RegExp(`function\\s+${name}\\s*\\(`));
+  }
+  assert.match(html, /setPointerCapture/);
+  assert.match(html, /Math\.hypot[\s\S]*?<\s*6/);
+});
