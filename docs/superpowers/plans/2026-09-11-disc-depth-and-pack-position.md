@@ -63,6 +63,6 @@ Expected: all tests pass with no failures.
 
 Run `git diff --check`, then stage `index.html`, `tests/snowman-hot-pack.test.mjs`, and this plan. Commit with message `fix: embed disc and lower snowman`.
 
-- [ ] **Step 6: Push and verify deployment**
+- [x] **Step 6: Push and verify deployment**
 
 Push the current branch to `origin/main`, wait for Vercel to report the Git-triggered production deployment as Ready, and confirm `https://snowman-hot-pack.vercel.app` returns HTTP 200 with `<title>눈사람 핫팩</title>`.
