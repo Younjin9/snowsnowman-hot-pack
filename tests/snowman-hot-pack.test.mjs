@@ -69,3 +69,13 @@ test('supports bounded pointer dragging with a six pixel activation threshold', 
   assert.match(html, /setPointerCapture/);
   assert.match(html, /Math\.hypot[\s\S]*?<\s*6/);
 });
+
+test('requests orientation permission from a user gesture and keeps a fallback', () => {
+  assert.match(html, /id=["']tiltBtn["']/);
+  for (const name of ['requestTiltPermission', 'handleOrientation', 'startTiltLoop', 'stopTiltLoop']) {
+    assert.match(html, new RegExp(`function\\s+${name}\\s*\\(`));
+  }
+  assert.match(html, /DeviceOrientationEvent\.requestPermission/);
+  assert.match(html, /addEventListener\(["']deviceorientation["']/);
+  assert.match(html, /기울기 센서를 사용할 수 없어요\. 똑딱이를 직접 움직여주세요/);
+});

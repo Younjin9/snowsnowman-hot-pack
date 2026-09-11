@@ -56,7 +56,7 @@
     width: 100%;
     min-height: 100dvh;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
     place-items: center;
     gap: 8px;
     padding:
@@ -571,6 +571,7 @@
   .countdown.show { opacity: 1; }
 
   .melt-btn {
+    display: none;
     min-width: 128px;
     min-height: 46px;
     margin-top: 1px;
@@ -590,6 +591,9 @@
   }
 
   .melt-btn.show {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
@@ -598,6 +602,42 @@
   .melt-btn:hover { background: #3b3731; }
   .melt-btn:active { transform: scale(.97); }
   .melt-btn:disabled { cursor: wait; opacity: .7; }
+
+  .controls {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+  }
+
+  .tilt-btn {
+    display: none;
+    min-height: 42px;
+    padding: 10px 17px;
+    border: 1px solid rgba(77, 68, 57, .28);
+    border-radius: 999px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, .26);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 5px 12px rgba(64,50,32,.08);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 720;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .tilt-btn:active { transform: scale(.97); }
+  .tilt-btn:disabled { cursor: default; opacity: .55; }
+
+  .tilt-btn:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 4px;
+  }
+
+  @media (pointer: coarse) {
+    .tilt-btn { display: inline-flex; align-items: center; justify-content: center; }
+  }
 
   @media (max-width: 650px) {
     .stage { padding-inline: 12px; gap: 5px; }
@@ -621,10 +661,10 @@
       grid-template-rows: 1fr auto auto;
       padding-inline: max(18px, env(safe-area-inset-left)) max(18px, env(safe-area-inset-right));
     }
-    .pack-wrap { grid-row: 1 / 4; width: min(56vw, 330px); height: min(92dvh, 430px); }
-    .status, .countdown, .melt-btn { grid-column: 2; }
+    .pack-wrap { grid-row: 1 / 5; width: min(56vw, 330px); height: min(92dvh, 430px); }
+    .status, .countdown, .controls { grid-column: 2; }
     .status { align-self: end; }
-    .melt-btn { align-self: start; }
+    .controls { align-self: start; flex-wrap: wrap; }
   }
 
   @media (prefers-color-scheme: dark) {
@@ -648,7 +688,8 @@
     body::before { opacity: .08; mix-blend-mode: screen; }
     .melt-btn { color: #24211d; background: #f2ede4; border-color: #f2ede4; }
     .melt-btn:hover { background: #ddd5c8; }
-    .disc:focus-visible, .melt-btn:focus-visible { outline-color: #f2ede4; }
+    .tilt-btn { color: #f2ede4; background: rgba(242,237,228,.1); border-color: rgba(242,237,228,.26); }
+    .disc:focus-visible, .melt-btn:focus-visible, .tilt-btn:focus-visible { outline-color: #f2ede4; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -711,7 +752,10 @@
   </section>
   <p class="status" id="status" aria-live="polite">금속 똑딱이를 눌러 따뜻하게 해보세요</p>
   <div class="countdown" id="countdown" aria-live="polite"></div>
-  <button class="melt-btn" id="meltBtn">녹이기</button>
+  <div class="controls">
+    <button class="tilt-btn" id="tiltBtn" type="button">기울기 켜기</button>
+    <button class="melt-btn" id="meltBtn" type="button">녹이기</button>
+  </div>
 </main>
 
 <script>
@@ -719,6 +763,7 @@
   const pack = document.getElementById('pack');
   const disc = document.getElementById('disc');
   const meltBtn = document.getElementById('meltBtn');
+  const tiltBtn = document.getElementById('tiltBtn');
   const countdown = document.getElementById('countdown');
   const status = document.getElementById('status');
   const belly = document.querySelector('.belly');
@@ -729,11 +774,17 @@
   let stateTimer = null;
   let drag = null;
   let discPosition = { x: 50, y: 72 };
+  let tiltActive = false;
+  let tiltUnavailable = false;
+  let tiltFrame = null;
+  let tiltOrigin = null;
+  let tiltTarget = { x: 50, y: 72 };
 
   function setState(nextState, message) {
     state = nextState;
     pack.dataset.state = nextState;
     status.textContent = message;
+    tiltBtn.disabled = tiltUnavailable || nextState !== 'ready';
   }
 
   function clampDiscPosition(x, y) {
@@ -790,8 +841,91 @@
     const travel = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
     if (disc.hasPointerCapture(event.pointerId)) disc.releasePointerCapture(event.pointerId);
     drag = null;
+    tiltTarget = { ...discPosition };
     if (travel < 6) startCrystallization();
     else setState('ready', '똑딱이를 눌러 결정화를 시작하세요');
+  }
+
+  function showTiltFallback() {
+    stopTiltLoop();
+    tiltUnavailable = true;
+    tiltBtn.disabled = true;
+    tiltBtn.textContent = '기울기 미지원';
+    status.textContent = '기울기 센서를 사용할 수 없어요. 똑딱이를 직접 움직여주세요';
+  }
+
+  function handleOrientation(event) {
+    if (!tiltActive || state !== 'ready' || drag) return;
+    if (!Number.isFinite(event.beta) || !Number.isFinite(event.gamma)) return;
+    if (!tiltOrigin) tiltOrigin = { beta: event.beta, gamma: event.gamma };
+    const beta = Math.max(-30, Math.min(30, event.beta - tiltOrigin.beta));
+    const gamma = Math.max(-30, Math.min(30, event.gamma - tiltOrigin.gamma));
+    tiltTarget = clampDiscPosition(50 + gamma / 30 * 20, 71 + beta / 30 * 13.5);
+  }
+
+  function startTiltLoop() {
+    if (tiltFrame) cancelAnimationFrame(tiltFrame);
+    tiltActive = true;
+    tiltOrigin = null;
+    tiltTarget = { ...discPosition };
+    tiltBtn.disabled = false;
+    tiltBtn.textContent = '기울기 끄기';
+    setState('ready', '휴대폰을 기울여 똑딱이를 움직여보세요');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function step() {
+      if (!tiltActive) return;
+      if (state === 'ready' && !drag) {
+        const amount = reducedMotion ? 1 : .14;
+        const x = discPosition.x + (tiltTarget.x - discPosition.x) * amount;
+        const y = discPosition.y + (tiltTarget.y - discPosition.y) * amount;
+        setDiscPosition(x, y);
+      }
+      tiltFrame = requestAnimationFrame(step);
+    }
+
+    tiltFrame = requestAnimationFrame(step);
+  }
+
+  function stopTiltLoop() {
+    tiltActive = false;
+    tiltOrigin = null;
+    window.removeEventListener('deviceorientation', handleOrientation);
+    if (tiltFrame) cancelAnimationFrame(tiltFrame);
+    tiltFrame = null;
+    tiltBtn.disabled = tiltUnavailable;
+    tiltBtn.textContent = '기울기 켜기';
+  }
+
+  async function requestTiltPermission() {
+    if (state !== 'ready') return;
+    if (tiltActive) {
+      stopTiltLoop();
+      setState('ready', '똑딱이를 직접 움직일 수 있어요');
+      return;
+    }
+
+    tiltBtn.disabled = true;
+    status.textContent = '기울기 센서 권한을 확인하고 있어요';
+    const Orientation = window.DeviceOrientationEvent;
+    if (!Orientation) {
+      showTiltFallback();
+      return;
+    }
+
+    try {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission !== 'granted') {
+          showTiltFallback();
+          return;
+        }
+      }
+      window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+      startTiltLoop();
+    } catch {
+      showTiltFallback();
+    }
   }
 
   function seedCrystals(container, count, startX = 50, startY = 70) {
@@ -842,6 +976,7 @@
 
   function startCrystallization() {
     if (state !== 'ready') return;
+    if (tiltActive) stopTiltLoop();
     setDiscPosition(discPosition.x, discPosition.y);
     clearTimeout(stateTimer);
     meltArmed = false;
@@ -919,6 +1054,8 @@
   disc.addEventListener('click', (event) => {
     if (event.detail === 0) startCrystallization();
   });
+  tiltBtn.addEventListener('click', requestTiltPermission);
+  window.addEventListener('pagehide', stopTiltLoop);
 
   meltBtn.addEventListener('click', () => {
     if (state === 'solid' && !meltArmed) {
