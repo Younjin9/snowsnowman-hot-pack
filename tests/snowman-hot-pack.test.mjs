@@ -48,3 +48,16 @@ test('contains valid inline JavaScript syntax', () => {
   assert.ok(script, 'missing inline script');
   assert.doesNotThrow(() => new Function(script));
 });
+
+test('separates the transparent liquid and opaque frozen states', () => {
+  for (const selector of ['.freeze-fill', '.head-freeze', '.belly-freeze']) {
+    assert.ok(html.includes(selector), `missing ${selector}`);
+  }
+  assert.match(html, /\.pack\.solid[\s\S]*?--frozen-opacity:\s*\.96/);
+  assert.match(html, /@keyframes\s+freezeBloom/);
+});
+
+test('builds the hat from a crown behind the head and a brim above it', () => {
+  assert.match(html, /class=["']hat-crown["']/);
+  assert.match(html, /class=["']hat-brim["']/);
+});

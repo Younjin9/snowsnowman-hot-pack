@@ -11,8 +11,8 @@
     --cream-deep: #ded0b6;
     --ink: #24211d;
     --muted: #756f65;
-    --vinyl: rgba(244, 252, 251, .48);
-    --vinyl-edge: rgba(255, 255, 255, .88);
+    --vinyl: rgba(224, 241, 240, .12);
+    --vinyl-edge: rgba(255, 255, 255, .76);
     --red: #c94f45;
     --red-deep: #9f342f;
     --metal: #a9aaa5;
@@ -101,6 +101,9 @@
     height: 100%;
     max-width: 100%;
     aspect-ratio: .68;
+    --freeze-x: 50%;
+    --freeze-y: 60%;
+    --frozen-opacity: 0;
     filter: drop-shadow(0 22px 22px rgba(79, 62, 38, .10));
     transform-origin: 50% 70%;
   }
@@ -126,11 +129,11 @@
     overflow: hidden;
     border: 4px solid var(--vinyl-edge);
     background:
-      linear-gradient(120deg, rgba(255,255,255,.66), transparent 24% 64%, rgba(171,203,204,.18)),
+      linear-gradient(120deg, rgba(255,255,255,.36), transparent 24% 64%, rgba(171,203,204,.1)),
       var(--vinyl);
     box-shadow:
-      inset 8px 8px 18px rgba(255,255,255,.65),
-      inset -10px -14px 22px rgba(82,111,111,.10),
+      inset 8px 8px 18px rgba(255,255,255,.42),
+      inset -10px -14px 22px rgba(82,111,111,.07),
       0 0 0 2px rgba(150,151,143,.14);
     backdrop-filter: blur(3px) saturate(1.1);
     -webkit-backdrop-filter: blur(3px) saturate(1.1);
@@ -178,8 +181,8 @@
     inset: 14% 12% 10%;
     border-radius: 48%;
     background:
-      radial-gradient(circle at 28% 22%, rgba(255,255,255,.64), transparent 20%),
-      linear-gradient(145deg, rgba(217,236,235,.12), rgba(183,213,215,.16));
+      radial-gradient(circle at 28% 22%, rgba(255,255,255,.26), transparent 20%),
+      linear-gradient(145deg, rgba(217,236,235,.04), rgba(183,213,215,.08));
     filter: blur(3px);
     z-index: 1;
     pointer-events: none;
@@ -192,7 +195,7 @@
     width: 13%;
     height: 54%;
     border-radius: 50%;
-    background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.04));
+    background: linear-gradient(180deg, rgba(255,255,255,.54), rgba(255,255,255,.02));
     filter: blur(3px);
     transform: rotate(10deg);
     z-index: 9;
@@ -256,40 +259,109 @@
   .cheek.left { left: 20%; }
   .cheek.right { right: 20%; }
 
-  .hat {
+  .freeze-fill {
     position: absolute;
-    left: 50%;
-    top: -.5%;
-    width: 43%;
-    height: 17%;
-    transform: translateX(-50%) rotate(2deg);
-    border-radius: 50% 49% 18% 20%;
-    background: linear-gradient(145deg, #dc675b, var(--red) 54%, var(--red-deep));
-    box-shadow: inset 0 6px 0 rgba(255,255,255,.2), 0 5px 9px rgba(105,49,42,.15);
-    z-index: 20;
+    left: var(--origin-x);
+    top: var(--origin-y);
+    width: 220%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(250,253,252,.99) 0 38%, rgba(247,251,250,.94) 55%, rgba(235,245,244,.46) 70%, transparent 77%);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.02);
+    transform-origin: center;
+    pointer-events: none;
+    z-index: 2;
   }
 
-  .hat::before {
-    content: "";
+  .belly-freeze {
+    --origin-x: var(--freeze-x);
+    --origin-y: var(--freeze-y);
+  }
+
+  .head-freeze {
+    --origin-x: 50%;
+    --origin-y: 108%;
+    width: 245%;
+  }
+
+  .pack.crystallizing .belly-freeze {
+    animation: freezeBloom 1.78s cubic-bezier(.16,.76,.24,1) forwards;
+  }
+
+  .pack.crystallizing .head-freeze {
+    animation: freezeBloom 1.58s .62s cubic-bezier(.16,.76,.24,1) forwards;
+  }
+
+  .pack.solid { --frozen-opacity: .96; }
+
+  .pack.solid .freeze-fill {
+    opacity: var(--frozen-opacity);
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+
+  .pack.melting .freeze-fill {
+    animation: freezeMelt var(--melt-time) linear forwards;
+  }
+
+  @keyframes freezeBloom {
+    0% { opacity: .12; transform: translate(-50%, -50%) scale(.02); }
+    38% { opacity: .5; }
+    76% { opacity: .86; }
+    100% { opacity: .96; transform: translate(-50%, -50%) scale(1.12); }
+  }
+
+  @keyframes freezeMelt {
+    0% { opacity: .96; transform: translate(-50%, -50%) scale(1.12); }
+    72% { opacity: .36; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(.82); }
+  }
+
+  .hat-crown {
     position: absolute;
-    width: 29%;
+    left: 50%;
+    top: .8%;
+    width: 45%;
+    height: 14.5%;
+    transform: translateX(-50%) rotate(1.5deg);
+    border-radius: 52% 52% 22% 22% / 58% 58% 35% 35%;
+    background: linear-gradient(145deg, #dc675b, var(--red) 54%, var(--red-deep));
+    box-shadow: inset 0 6px 0 rgba(255,255,255,.2), 0 5px 9px rgba(105,49,42,.13);
+    z-index: 4;
+  }
+
+  .hat-pom {
+    position: absolute;
+    width: 28%;
     aspect-ratio: 1;
-    left: 57%;
-    top: -28%;
+    left: 60%;
+    top: -34%;
     border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #e4776c, var(--red) 62%, var(--red-deep));
     box-shadow: 0 4px 6px rgba(95,42,36,.14);
   }
 
+  .hat-brim {
+    position: absolute;
+    left: 50%;
+    top: 10.5%;
+    width: 53%;
+    height: 6.7%;
+    transform: translateX(-50%) rotate(1deg);
+    border-radius: 50% 50% 45% 45% / 58% 58% 42% 42%;
+    background: linear-gradient(180deg, #c94b43, #a73731);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.15), 0 4px 5px rgba(89,39,34,.16);
+    z-index: 20;
+    pointer-events: none;
+  }
+
   .hat-fold {
     position: absolute;
-    left: -8%;
-    right: -8%;
-    bottom: -7%;
-    height: 28%;
+    inset: 34% 10% auto;
+    height: 1px;
     border-radius: 999px;
-    background: linear-gradient(180deg, #ba443c, #a73731);
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.14), 0 3px 5px rgba(89,39,34,.14);
+    background: rgba(112, 36, 32, .2);
     pointer-events: none;
   }
 
@@ -600,7 +672,9 @@
     <div class="pack" id="pack" data-state="ready">
       <div class="body">
         <div class="bridge"></div>
+        <div class="hat-crown"><span class="hat-pom"></span></div>
         <div class="belly">
+          <span class="freeze-fill belly-freeze"></span>
           <span class="seam"></span>
           <span class="liquid-glow"></span>
           <span class="vinyl-shine"></span>
@@ -608,6 +682,7 @@
           <div class="crystal-layer belly-crystals"></div>
         </div>
         <div class="head">
+          <span class="freeze-fill head-freeze"></span>
           <span class="seam"></span>
           <span class="liquid-glow"></span>
           <span class="vinyl-shine"></span>
@@ -622,7 +697,7 @@
             <span class="cheek right"></span>
           </div>
         </div>
-        <div class="hat"><span class="hat-fold"></span></div>
+        <div class="hat-brim"><span class="hat-fold"></span></div>
         <div class="scarf"><span class="scarf-tail"><span class="scarf-fringe"></span></span></div>
         <span class="button-dot one"></span>
         <span class="button-dot two"></span>
