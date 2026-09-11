@@ -102,7 +102,11 @@
     max-width: 100%;
     aspect-ratio: .68;
     --freeze-x: 50%;
-    --freeze-y: 60%;
+    --freeze-y: 73%;
+    --head-freeze-x: 50%;
+    --head-freeze-y: 100%;
+    --belly-freeze-x: 50%;
+    --belly-freeze-y: 73%;
     --frozen-opacity: 0;
     --disc-dx: 0px;
     --disc-dy: 0px;
@@ -278,22 +282,35 @@
   }
 
   .belly-freeze {
-    --origin-x: var(--freeze-x);
-    --origin-y: var(--freeze-y);
+    --origin-x: var(--belly-freeze-x);
+    --origin-y: var(--belly-freeze-y);
   }
 
   .head-freeze {
-    --origin-x: 50%;
-    --origin-y: 108%;
+    --origin-x: var(--head-freeze-x);
+    --origin-y: var(--head-freeze-y);
     width: 245%;
   }
 
-  .pack.crystallizing .belly-freeze {
+  .pack.freeze-from-belly.crystallizing .belly-freeze {
     animation: freezeBloom 1.78s cubic-bezier(.16,.76,.24,1) forwards;
   }
 
-  .pack.crystallizing .head-freeze {
+  .pack.freeze-from-belly.crystallizing .head-freeze {
     animation: freezeBloom 1.58s .62s cubic-bezier(.16,.76,.24,1) forwards;
+  }
+
+  .pack.freeze-from-head.crystallizing .head-freeze {
+    animation: freezeBloom 1.72s cubic-bezier(.16,.76,.24,1) forwards;
+  }
+
+  .pack.freeze-from-head.crystallizing .belly-freeze {
+    animation: freezeBloom 1.7s .55s cubic-bezier(.16,.76,.24,1) forwards;
+  }
+
+  .pack.freeze-from-neck.crystallizing .head-freeze,
+  .pack.freeze-from-neck.crystallizing .belly-freeze {
+    animation: freezeBloom 2.12s cubic-bezier(.16,.76,.24,1) forwards;
   }
 
   .pack.solid { --frozen-opacity: .96; }
@@ -768,6 +785,7 @@
   const tiltBtn = document.getElementById('tiltBtn');
   const countdown = document.getElementById('countdown');
   const status = document.getElementById('status');
+  const head = document.querySelector('.head');
   const belly = document.querySelector('.belly');
 
   let state = 'ready';
@@ -782,6 +800,10 @@
   let tiltOrigin = null;
   let tiltTarget = { x: 50, y: 80 };
   let tiltAnchor = { x: 50, y: 80 };
+  let freezeOrigins = {
+    head: { x: 50, y: 100 },
+    belly: { x: 50, y: 73 },
+  };
 
   const headZone = { cx: 50, cy: 24, rx: 16, ry: 12 };
   const neckZone = { left: 42, right: 58, top: 34, bottom: 45 };
@@ -836,22 +858,40 @@
     return closestSnowmanPoint(x, y);
   }
 
+  function getDiscRegion(position) {
+    if (position.y < neckZone.top) return 'head';
+    if (position.y > neckZone.bottom) return 'belly';
+    return 'neck';
+  }
+
   function setDiscPosition(x, y) {
     const next = clampDiscPosition(x, y);
     const packRect = pack.getBoundingClientRect();
+    const headRect = head.getBoundingClientRect();
     const bellyRect = belly.getBoundingClientRect();
     const discX = packRect.left + packRect.width * next.x / 100;
     const discY = packRect.top + packRect.height * next.y / 100;
     const offsetX = packRect.width * (next.x - 50) / 100;
     const offsetY = packRect.height * (next.y - 80) / 100;
-    const freezeX = (discX - bellyRect.left) / bellyRect.width * 100;
-    const freezeY = (discY - bellyRect.top) / bellyRect.height * 100;
+    const clampPercent = (value) => Math.max(0, Math.min(100, value));
+    const headX = clampPercent((discX - headRect.left) / headRect.width * 100);
+    const headY = clampPercent((discY - headRect.top) / headRect.height * 100);
+    const bellyX = clampPercent((discX - bellyRect.left) / bellyRect.width * 100);
+    const bellyY = clampPercent((discY - bellyRect.top) / bellyRect.height * 100);
 
     discPosition = next;
+    freezeOrigins = {
+      head: { x: headX, y: headY },
+      belly: { x: bellyX, y: bellyY },
+    };
     pack.style.setProperty('--disc-dx', `${offsetX}px`);
     pack.style.setProperty('--disc-dy', `${offsetY}px`);
-    pack.style.setProperty('--freeze-x', `${freezeX}%`);
-    pack.style.setProperty('--freeze-y', `${freezeY}%`);
+    pack.style.setProperty('--freeze-x', `${bellyX}%`);
+    pack.style.setProperty('--freeze-y', `${bellyY}%`);
+    pack.style.setProperty('--head-freeze-x', `${headX}%`);
+    pack.style.setProperty('--head-freeze-y', `${headY}%`);
+    pack.style.setProperty('--belly-freeze-x', `${bellyX}%`);
+    pack.style.setProperty('--belly-freeze-y', `${bellyY}%`);
   }
 
   function beginDiscDrag(event) {
@@ -992,9 +1032,11 @@
     }
   }
 
-  function prepareCrystals() {
-    seedCrystals(document.querySelector('.belly-crystals'), 108, 50, 70);
-    seedCrystals(document.querySelector('.head-crystals'), 68, 50, 90);
+  function prepareCrystals(region) {
+    const bellyStart = region === 'head' ? { x: 50, y: 4 } : freezeOrigins.belly;
+    const headStart = region === 'belly' ? { x: 50, y: 96 } : freezeOrigins.head;
+    seedCrystals(document.querySelector('.belly-crystals'), 108, bellyStart.x, bellyStart.y);
+    seedCrystals(document.querySelector('.head-crystals'), 68, headStart.x, headStart.y);
   }
 
   function clickSound() {
@@ -1020,15 +1062,17 @@
     if (state !== 'ready') return;
     if (tiltActive) stopTiltLoop();
     setDiscPosition(discPosition.x, discPosition.y);
+    const region = getDiscRegion(discPosition);
     clearTimeout(stateTimer);
     meltArmed = false;
     countdown.classList.remove('show');
     countdown.textContent = '';
     meltBtn.classList.remove('show');
     setState('crystallizing', '결정이 퍼지고 있어요');
-    prepareCrystals();
+    prepareCrystals(region);
     clickSound();
-    pack.classList.remove('solid', 'melting');
+    pack.classList.remove('solid', 'melting', 'freeze-from-head', 'freeze-from-neck', 'freeze-from-belly');
+    pack.classList.add(`freeze-from-${region}`);
     void pack.offsetWidth;
     pack.classList.add('bump', 'crystallizing');
     setTimeout(() => pack.classList.remove('bump'), 400);
@@ -1079,7 +1123,15 @@
     meltTimer = null;
     stateTimer = null;
     meltArmed = false;
-    pack.classList.remove('crystallizing', 'solid', 'melting', 'bump');
+    pack.classList.remove(
+      'crystallizing',
+      'solid',
+      'melting',
+      'bump',
+      'freeze-from-head',
+      'freeze-from-neck',
+      'freeze-from-belly',
+    );
     document.querySelectorAll('.crystal-layer').forEach((layer) => layer.replaceChildren());
     countdown.classList.remove('show');
     countdown.textContent = '';

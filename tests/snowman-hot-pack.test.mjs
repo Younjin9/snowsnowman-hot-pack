@@ -93,3 +93,13 @@ test('renders exactly three black decorative buttons', () => {
   const buttons = html.match(/<span class="button-dot (?:one|two|three)"><\/span>/g) ?? [];
   assert.equal(buttons.length, 3);
 });
+
+test('selects the freeze sequence from the current disc region', () => {
+  assert.match(html, /function\s+getDiscRegion\s*\(/);
+  for (const name of ['freeze-from-head', 'freeze-from-neck', 'freeze-from-belly']) {
+    assert.ok(html.includes(name), `missing ${name}`);
+  }
+  for (const token of ['--head-freeze-x', '--head-freeze-y', '--belly-freeze-x', '--belly-freeze-y']) {
+    assert.ok(html.includes(token), `missing ${token}`);
+  }
+});
