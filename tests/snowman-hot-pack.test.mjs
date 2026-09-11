@@ -20,3 +20,31 @@ test('defines the approved warm product visual system', () => {
     assert.ok(html.includes(selector), `missing ${selector}`);
   }
 });
+
+test('implements every interaction state through named functions', () => {
+  for (const name of [
+    'setState',
+    'prepareCrystals',
+    'startCrystallization',
+    'armMelt',
+    'startMelting',
+    'resetPack',
+  ]) {
+    assert.match(html, new RegExp(`function\\s+${name}\\s*\\(`));
+  }
+  for (const state of ['ready', 'crystallizing', 'solid', 'armed', 'melting']) {
+    assert.ok(html.includes(`'${state}'`), `missing state ${state}`);
+  }
+});
+
+test('keeps timing and motion accessibility requirements', () => {
+  assert.match(html, /Math\.floor\(Math\.random\(\)\s*\*\s*7\)\s*\+\s*4/);
+  assert.match(html, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(html, /:focus-visible/);
+});
+
+test('contains valid inline JavaScript syntax', () => {
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script, 'missing inline script');
+  assert.doesNotThrow(() => new Function(script));
+});

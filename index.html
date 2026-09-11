@@ -646,8 +646,15 @@
   let state = 'ready';
   let meltArmed = false;
   let meltTimer = null;
+  let stateTimer = null;
 
-  const seedCrystals = (container, count, startX = 50, startY = 70) => {
+  function setState(nextState, message) {
+    state = nextState;
+    pack.dataset.state = nextState;
+    status.textContent = message;
+  }
+
+  function seedCrystals(container, count, startX = 50, startY = 70) {
     container.replaceChildren();
     for (let i = 0; i < count; i += 1) {
       const crystal = document.createElement('span');
@@ -667,16 +674,17 @@
       crystal.style.setProperty('--branch', `${24 + Math.round(Math.random() * 16)}px`);
       container.appendChild(crystal);
     }
-  };
+  }
 
-  const prepareCrystals = () => {
+  function prepareCrystals() {
     seedCrystals(document.querySelector('.belly-crystals'), 108, 50, 70);
     seedCrystals(document.querySelector('.head-crystals'), 68, 50, 90);
-  };
+  }
 
-  const clickSound = () => {
+  function clickSound() {
     try {
       const AudioEngine = window.AudioContext || window.webkitAudioContext;
+      if (!AudioEngine) return;
       const context = new AudioEngine();
       const oscillator = context.createOscillator();
       const gain = context.createGain();
@@ -690,53 +698,48 @@
       oscillator.stop(context.currentTime + .065);
       oscillator.addEventListener('ended', () => context.close(), { once: true });
     } catch {}
-  };
+  }
 
-  disc.addEventListener('click', () => {
+  function startCrystallization() {
     if (state !== 'ready') return;
-    state = 'crystallizing';
-    pack.dataset.state = state;
+    clearTimeout(stateTimer);
     meltArmed = false;
     countdown.classList.remove('show');
     countdown.textContent = '';
     meltBtn.classList.remove('show');
-    status.textContent = '결정이 퍼지고 있어요';
+    setState('crystallizing', '결정이 퍼지고 있어요');
     prepareCrystals();
     clickSound();
     pack.classList.remove('solid', 'melting');
     void pack.offsetWidth;
     pack.classList.add('bump', 'crystallizing');
     setTimeout(() => pack.classList.remove('bump'), 400);
-    setTimeout(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    stateTimer = setTimeout(() => {
       pack.classList.remove('crystallizing');
       pack.classList.add('solid');
-      state = 'solid';
-      pack.dataset.state = state;
-      status.textContent = '따뜻해졌어요. 녹이면 다시 사용할 수 있어요';
+      setState('solid', '따뜻해졌어요. 녹이면 다시 사용할 수 있어요');
       meltBtn.classList.add('show');
-    }, 2350);
-  });
+    }, reducedMotion ? 40 : 2350);
+  }
 
-  meltBtn.addEventListener('click', () => {
-    if (state !== 'solid' && state !== 'armed') return;
-    if (!meltArmed) {
-      meltArmed = true;
-      state = 'armed';
-      pack.dataset.state = state;
-      meltBtn.textContent = '진짜 녹이기';
-      status.textContent = '한 번 더 누르면 녹이기 시작해요';
-      pack.classList.add('bump');
-      setTimeout(() => pack.classList.remove('bump'), 350);
-      return;
-    }
+  function armMelt() {
+    if (state !== 'solid') return;
+    meltArmed = true;
+    setState('armed', '한 번 더 누르면 녹이기 시작해요');
+    meltBtn.textContent = '진짜 녹이기';
+    pack.classList.add('bump');
+    setTimeout(() => pack.classList.remove('bump'), 350);
+  }
 
-    const seconds = Math.floor(Math.random() * 7) + 4;
+  function startMelting(seconds) {
+    if (state !== 'armed') return;
     let left = seconds;
-    state = 'melting';
-    pack.dataset.state = state;
+    clearInterval(meltTimer);
+    clearTimeout(stateTimer);
+    setState('melting', '결정이 천천히 녹고 있어요');
     meltBtn.disabled = true;
     meltBtn.textContent = '녹는 중';
-    status.textContent = '결정이 천천히 녹고 있어요';
     countdown.textContent = `${left}초`;
     countdown.classList.add('show');
     pack.style.setProperty('--melt-time', `${seconds}s`);
@@ -749,19 +752,36 @@
       else clearInterval(meltTimer);
     }, 1000);
 
-    setTimeout(() => {
-      pack.classList.remove('melting');
-      countdown.classList.remove('show');
-      countdown.textContent = '';
-      meltBtn.classList.remove('show');
-      meltBtn.disabled = false;
-      meltBtn.textContent = '녹이기';
-      meltArmed = false;
-      state = 'ready';
-      pack.dataset.state = state;
-      status.textContent = '금속 똑딱이를 눌러 따뜻하게 해보세요';
-      document.querySelectorAll('.crystal-layer').forEach((layer) => layer.replaceChildren());
-    }, seconds * 1000);
+    stateTimer = setTimeout(resetPack, seconds * 1000);
+  }
+
+  function resetPack() {
+    clearInterval(meltTimer);
+    clearTimeout(stateTimer);
+    meltTimer = null;
+    stateTimer = null;
+    meltArmed = false;
+    pack.classList.remove('crystallizing', 'solid', 'melting', 'bump');
+    document.querySelectorAll('.crystal-layer').forEach((layer) => layer.replaceChildren());
+    countdown.classList.remove('show');
+    countdown.textContent = '';
+    meltBtn.classList.remove('show');
+    meltBtn.disabled = false;
+    meltBtn.textContent = '녹이기';
+    setState('ready', '금속 똑딱이를 눌러 따뜻하게 해보세요');
+  }
+
+  disc.addEventListener('click', startCrystallization);
+
+  meltBtn.addEventListener('click', () => {
+    if (state === 'solid' && !meltArmed) {
+      armMelt();
+      return;
+    }
+    if (state === 'armed') {
+      const seconds = Math.floor(Math.random() * 7) + 4;
+      startMelting(seconds);
+    }
   });
 })();
 </script>
