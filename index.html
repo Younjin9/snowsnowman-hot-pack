@@ -795,6 +795,7 @@
   let meltArmed = false;
   let meltTimer = null;
   let stateTimer = null;
+  let lastFailureIndex = -1;
   let drag = null;
   let discPosition = { x: 50, y: 80 };
   let tiltActive = false;
@@ -811,6 +812,18 @@
   const headZone = { cx: 50, cy: 24, rx: 16, ry: 12 };
   const neckZone = { left: 42, right: 58, top: 34, bottom: 45 };
   const bellyZone = { cx: 50, cy: 66.5, rx: 25, ry: 23 };
+  const meltFailureMessages = [
+    '전자레인지가 고장났어요',
+    '냄비가 불에 탔어요',
+    '물이 전부 졸아버렸어요',
+    '가스불이 꺼졌어요',
+    '타이머를 깜빡했어요',
+    '온도가 조금 모자랐어요',
+    '주방 요정이 오늘 휴가예요',
+    '눈사람이 아직 녹기 싫대요',
+    '뚜껑이 감쪽같이 사라졌어요',
+    '핫팩이 이번엔 버텨냈어요',
+  ];
 
   function setState(nextState, message) {
     state = nextState;
@@ -1097,12 +1110,44 @@
     setTimeout(() => pack.classList.remove('bump'), 350);
   }
 
-  function startMelting(seconds) {
+  function chooseMeltOutcome() {
+    return Math.random() < .3 ? 'success' : 'failure';
+  }
+
+  function pickFailureMessage() {
+    const availableCount = meltFailureMessages.length - 1;
+    let nextIndex;
+    if (lastFailureIndex < 0) {
+      nextIndex = Math.floor(Math.random() * meltFailureMessages.length);
+    } else {
+      nextIndex = Math.floor(Math.random() * availableCount);
+      if (nextIndex >= lastFailureIndex) nextIndex += 1;
+    }
+    lastFailureIndex = nextIndex;
+    return meltFailureMessages[nextIndex];
+  }
+
+  function showMeltFailure() {
+    clearTimeout(stateTimer);
+    meltArmed = false;
+    meltBtn.disabled = true;
+    meltBtn.textContent = '녹이기 실패';
+    setState('solid', pickFailureMessage());
+    pack.classList.add('solid', 'bump');
+    stateTimer = setTimeout(() => {
+      pack.classList.remove('bump');
+      meltBtn.disabled = false;
+      meltBtn.textContent = '녹이기';
+      stateTimer = null;
+    }, 1200);
+  }
+
+  function startMelting(seconds, message = '결정이 천천히 녹고 있어요') {
     if (state !== 'armed') return;
     let left = seconds;
     clearInterval(meltTimer);
     clearTimeout(stateTimer);
-    setState('melting', '결정이 천천히 녹고 있어요');
+    setState('melting', message);
     meltBtn.disabled = true;
     meltBtn.textContent = '녹는 중';
     countdown.textContent = `${left}초`;
@@ -1160,8 +1205,12 @@
       return;
     }
     if (state === 'armed') {
+      if (chooseMeltOutcome() === 'failure') {
+        showMeltFailure();
+        return;
+      }
       const seconds = Math.floor(Math.random() * 7) + 4;
-      startMelting(seconds);
+      startMelting(seconds, '녹이기 성공! 결정이 녹기 시작했어요');
     }
   });
 })();

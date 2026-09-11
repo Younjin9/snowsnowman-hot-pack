@@ -4,6 +4,71 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
+function loadSnowman(randomValues = [.5]) {
+  const listeners = new Map();
+  const timeoutQueue = [];
+  let randomIndex = 0;
+  const makeElement = () => ({
+    classList: {
+      values: new Set(),
+      add(...names) { names.forEach((name) => this.values.add(name)); },
+      remove(...names) { names.forEach((name) => this.values.delete(name)); },
+      contains(name) { return this.values.has(name); },
+    },
+    style: { setProperty() {} },
+    dataset: {},
+    textContent: '',
+    disabled: false,
+    addEventListener(type, handler) { listeners.set(`${this.id}:${type}`, handler); },
+    getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
+    replaceChildren() {},
+    setPointerCapture() {},
+    hasPointerCapture() { return false; },
+    releasePointerCapture() {},
+    appendChild() {},
+    offsetWidth: 100,
+  });
+  const ids = Object.fromEntries(['pack', 'disc', 'meltBtn', 'tiltBtn', 'countdown', 'status'].map((id) => {
+    const element = makeElement();
+    element.id = id;
+    return [id, element];
+  }));
+  const head = makeElement();
+  const belly = makeElement();
+  const crystalLayer = makeElement();
+  const document = {
+    getElementById: (id) => ids[id],
+    querySelector: (selector) => selector === '.head' ? head : selector === '.belly' ? belly : crystalLayer,
+    querySelectorAll: () => [crystalLayer],
+    createElement: makeElement,
+  };
+  const window = {
+    matchMedia: () => ({ matches: true }),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const controlledMath = Object.create(Math);
+  controlledMath.random = () => randomValues[Math.min(randomIndex++, randomValues.length - 1)];
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? '';
+  const exposedScript = script.replace(
+    /\}\)\(\);\s*$/,
+    'window.__snowman = { setState, chooseMeltOutcome, pickFailureMessage, showMeltFailure };})();',
+  );
+  const run = new Function('window', 'document', 'Math', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', exposedScript);
+  run(
+    window,
+    document,
+    controlledMath,
+    (callback) => { timeoutQueue.push(callback); return timeoutQueue.length; },
+    () => {},
+    () => 1,
+    () => {},
+    () => 1,
+    () => {},
+  );
+  return { api: window.__snowman, ids, runTimeout: () => timeoutQueue.shift()?.() };
+}
+
 test('contains the standalone snowman controls and live status', () => {
   for (const id of ['pack', 'disc', 'status', 'countdown', 'meltBtn']) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
@@ -111,4 +176,32 @@ test('keeps the fitted beanie entirely in front of the head', () => {
   assert.match(crown, /height:\s*18%/);
   assert.match(brim, /z-index:\s*20/);
   assert.match(brim, /width:\s*45%/);
+});
+
+test('resolves confirmed melting with a thirty percent success boundary', () => {
+  assert.equal(loadSnowman([.299]).api.chooseMeltOutcome(), 'success');
+  assert.equal(loadSnowman([.3]).api.chooseMeltOutcome(), 'failure');
+});
+
+test('does not repeat a failure message on consecutive attempts', () => {
+  const { api } = loadSnowman([0, 0]);
+  const first = api.pickFailureMessage();
+  const second = api.pickFailureMessage();
+  assert.notEqual(first, second);
+});
+
+test('failed melting stays frozen and resets the button for retry', () => {
+  const { api, ids, runTimeout } = loadSnowman([0]);
+  ids.pack.classList.add('solid');
+  api.setState('armed', '한 번 더 누르면 녹이기 시작해요');
+  api.showMeltFailure();
+
+  assert.equal(ids.pack.classList.contains('solid'), true);
+  assert.equal(ids.meltBtn.disabled, true);
+  assert.notEqual(ids.status.textContent, '');
+
+  runTimeout();
+  assert.equal(ids.pack.dataset.state, 'solid');
+  assert.equal(ids.meltBtn.disabled, false);
+  assert.equal(ids.meltBtn.textContent, '녹이기');
 });
