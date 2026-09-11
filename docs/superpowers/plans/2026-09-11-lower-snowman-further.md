@@ -27,7 +27,7 @@
 - Consumes: existing `.pack-wrap` transform and its short-landscape override
 - Produces: portrait placement contract `translateY(clamp(65px, 10dvh, 85px))`
 
-- [ ] **Step 1: Update the test first**
+- [x] **Step 1: Update the test first**
 
 Change the pack placement assertion to:
 
@@ -35,13 +35,13 @@ Change the pack placement assertion to:
 assert.match(packWrap, /transform:\s*translateY\(clamp\(65px,\s*10dvh,\s*85px\)\)/);
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test tests/snowman-hot-pack.test.mjs`
 
 Expected: one failure because production CSS still uses `clamp(50px, 8dvh, 70px)`.
 
-- [ ] **Step 3: Update the production CSS**
+- [x] **Step 3: Update the production CSS**
 
 Change the base `.pack-wrap` transform in `index.html` to:
 
@@ -49,12 +49,12 @@ Change the base `.pack-wrap` transform in `index.html` to:
 transform: translateY(clamp(65px, 10dvh, 85px));
 ```
 
-- [ ] **Step 4: Run the full tests and verify GREEN**
+- [x] **Step 4: Run the full tests and verify GREEN**
 
 Run: `node --test tests/snowman-hot-pack.test.mjs`
 
 Expected: all 17 tests pass.
 
-- [ ] **Step 5: Commit, push, and verify production**
+- [x] **Step 5: Commit, push, and verify production**
 
 Run `git diff --check`, commit the implementation and this plan as `fix: lower snowman further`, push to `origin/main`, wait for Vercel Ready, and verify the production URL returns HTTP 200.

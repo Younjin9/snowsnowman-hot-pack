@@ -211,6 +211,6 @@ test('embeds the disc below decorations and lowers the pack responsively', () =>
   const packWrap = html.match(/\.pack-wrap\s*\{([\s\S]*?)\}/)?.[1] ?? '';
   const landscape = html.match(/@media\s*\(max-height:\s*480px\)[\s\S]*?(?=@media|<\/style>)/)?.[0] ?? '';
   assert.match(disc, /z-index:\s*4/);
-  assert.match(packWrap, /transform:\s*translateY\(clamp\(50px,\s*8dvh,\s*70px\)\)/);
+  assert.match(packWrap, /transform:\s*translateY\(clamp\(65px,\s*10dvh,\s*85px\)\)/);
   assert.match(landscape, /\.pack-wrap[\s\S]*?transform:\s*none/);
 });
