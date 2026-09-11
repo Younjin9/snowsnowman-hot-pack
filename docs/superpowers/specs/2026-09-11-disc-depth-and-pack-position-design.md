@@ -19,7 +19,7 @@ Make the movable metal snap look embedded inside the transparent snowman warmer 
 ## Vertical Position
 
 - Lower the complete snowman presentation by applying a responsive vertical translation to `.pack-wrap`, not `.pack`.
-- Use `translateY(clamp(50px, 8dvh, 70px))` in portrait layouts. This approximates the requested 30% visual correction without moving the artwork by 30% of its own height and overlapping the controls.
+- Use `translateY(clamp(65px, 10dvh, 85px))` in portrait layouts. This adds roughly 15–20px to the approved first adjustment while keeping a small-screen safety cap before the status text.
 - Disable the added translation in short landscape mode, where the page uses a two-column composition and vertical space is limited.
 - Keep all internal coordinates, crystallization origins, drag bounds, and tilt calculations unchanged because they remain relative to the transformed pack geometry.
 
