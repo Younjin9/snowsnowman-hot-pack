@@ -415,13 +415,14 @@
     pointer-events: none;
   }
 
-  .button-dot.one { top: 52%; }
-  .button-dot.two { top: 60.5%; }
+  .button-dot.one { top: 50%; }
+  .button-dot.two { top: 57%; }
+  .button-dot.three { top: 64%; }
 
   .disc {
     position: absolute;
     left: 50%;
-    top: 72%;
+    top: 80%;
     width: 86px;
     height: 86px;
     transform: translate(-50%, -50%) translate(var(--disc-dx), var(--disc-dy));
@@ -746,6 +747,7 @@
         <div class="scarf"><span class="scarf-tail"><span class="scarf-fringe"></span></span></div>
         <span class="button-dot one"></span>
         <span class="button-dot two"></span>
+        <span class="button-dot three"></span>
         <button class="disc" id="disc" aria-label="핫팩 똑딱이 누르기"></button>
       </div>
     </div>
@@ -773,12 +775,17 @@
   let meltTimer = null;
   let stateTimer = null;
   let drag = null;
-  let discPosition = { x: 50, y: 72 };
+  let discPosition = { x: 50, y: 80 };
   let tiltActive = false;
   let tiltUnavailable = false;
   let tiltFrame = null;
   let tiltOrigin = null;
-  let tiltTarget = { x: 50, y: 72 };
+  let tiltTarget = { x: 50, y: 80 };
+  let tiltAnchor = { x: 50, y: 80 };
+
+  const headZone = { cx: 50, cy: 24, rx: 16, ry: 12 };
+  const neckZone = { left: 42, right: 58, top: 34, bottom: 45 };
+  const bellyZone = { cx: 50, cy: 66.5, rx: 25, ry: 23 };
 
   function setState(nextState, message) {
     state = nextState;
@@ -787,15 +794,46 @@
     tiltBtn.disabled = tiltUnavailable || nextState !== 'ready';
   }
 
-  function clampDiscPosition(x, y) {
-    const dx = (x - 50) / 20;
-    const dy = (y - 71) / 13.5;
+  function projectToEllipse(point, zone) {
+    const dx = (point.x - zone.cx) / zone.rx;
+    const dy = (point.y - zone.cy) / zone.ry;
     const distance = Math.hypot(dx, dy);
-    if (distance <= 1) return { x, y };
+    if (distance <= 1) return point;
     return {
-      x: 50 + (dx / distance) * 20,
-      y: 71 + (dy / distance) * 13.5,
+      x: zone.cx + (dx / distance) * zone.rx,
+      y: zone.cy + (dy / distance) * zone.ry,
     };
+  }
+
+  function projectToRect(point, zone) {
+    return {
+      x: Math.max(zone.left, Math.min(zone.right, point.x)),
+      y: Math.max(zone.top, Math.min(zone.bottom, point.y)),
+    };
+  }
+
+  function closestSnowmanPoint(x, y) {
+    const point = { x, y };
+    const inHead = Math.hypot((x - headZone.cx) / headZone.rx, (y - headZone.cy) / headZone.ry) <= 1;
+    const inBelly = Math.hypot((x - bellyZone.cx) / bellyZone.rx, (y - bellyZone.cy) / bellyZone.ry) <= 1;
+    const inNeck = x >= neckZone.left && x <= neckZone.right && y >= neckZone.top && y <= neckZone.bottom;
+    if (inHead || inBelly || inNeck) return point;
+
+    const candidates = [
+      projectToEllipse(point, headZone),
+      projectToRect(point, neckZone),
+      projectToEllipse(point, bellyZone),
+    ];
+
+    return candidates.reduce((closest, candidate) => {
+      const candidateDistance = Math.hypot(candidate.x - x, candidate.y - y);
+      const closestDistance = Math.hypot(closest.x - x, closest.y - y);
+      return candidateDistance < closestDistance ? candidate : closest;
+    });
+  }
+
+  function clampDiscPosition(x, y) {
+    return closestSnowmanPoint(x, y);
   }
 
   function setDiscPosition(x, y) {
@@ -805,7 +843,7 @@
     const discX = packRect.left + packRect.width * next.x / 100;
     const discY = packRect.top + packRect.height * next.y / 100;
     const offsetX = packRect.width * (next.x - 50) / 100;
-    const offsetY = packRect.height * (next.y - 72) / 100;
+    const offsetY = packRect.height * (next.y - 80) / 100;
     const freezeX = (discX - bellyRect.left) / bellyRect.width * 100;
     const freezeY = (discY - bellyRect.top) / bellyRect.height * 100;
 
@@ -860,7 +898,10 @@
     if (!tiltOrigin) tiltOrigin = { beta: event.beta, gamma: event.gamma };
     const beta = Math.max(-30, Math.min(30, event.beta - tiltOrigin.beta));
     const gamma = Math.max(-30, Math.min(30, event.gamma - tiltOrigin.gamma));
-    tiltTarget = clampDiscPosition(50 + gamma / 30 * 20, 71 + beta / 30 * 13.5);
+    tiltTarget = clampDiscPosition(
+      tiltAnchor.x + gamma / 30 * 20,
+      tiltAnchor.y + beta / 30 * 58,
+    );
   }
 
   function startTiltLoop() {
@@ -868,6 +909,7 @@
     tiltActive = true;
     tiltOrigin = null;
     tiltTarget = { ...discPosition };
+    tiltAnchor = { ...discPosition };
     tiltBtn.disabled = false;
     tiltBtn.textContent = '기울기 끄기';
     setState('ready', '휴대폰을 기울여 똑딱이를 움직여보세요');

@@ -79,3 +79,17 @@ test('requests orientation permission from a user gesture and keeps a fallback',
   assert.match(html, /addEventListener\(["']deviceorientation["']/);
   assert.match(html, /기울기 센서를 사용할 수 없어요\. 똑딱이를 직접 움직여주세요/);
 });
+
+test('clamps movement to the union of head neck and belly regions', () => {
+  for (const name of ['projectToEllipse', 'projectToRect', 'closestSnowmanPoint']) {
+    assert.match(html, new RegExp(`function\\s+${name}\\s*\\(`));
+  }
+  assert.match(html, /const\s+headZone\s*=/);
+  assert.match(html, /const\s+neckZone\s*=/);
+  assert.match(html, /const\s+bellyZone\s*=/);
+});
+
+test('renders exactly three black decorative buttons', () => {
+  const buttons = html.match(/<span class="button-dot (?:one|two|three)"><\/span>/g) ?? [];
+  assert.equal(buttons.length, 3);
+});
